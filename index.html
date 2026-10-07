@@ -98,6 +98,8 @@ p { margin: 0; line-height: 1.5; color: var(--muted); }
   min-width: 0;
 }
 .chip .em { font-size: 26px; line-height: 1; }
+.picked { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-weight: 800; border: 2px solid var(--ink); border-radius: 999px; padding: 6px 16px; background: var(--butter); }
+.picked .back { padding: 0; }
 .chip.big { font-size: 17px; font-weight: 800; padding: 16px 10px; }
 .chip.big .em { font-size: 34px; }
 .chip small { font-weight: 400; color: var(--muted); font-size: 12px; }
@@ -189,6 +191,19 @@ function prochain(jourIdx) {
   d.setDate(d.getDate() + diff); return d;
 }
 
+// Disponibilités passées dans le lien : #20261010-03.20261011-145 (date-indices des créneaux)
+const DISPO = (() => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!/^\d{8}-\d+(\.\d{8}-\d+)*$/.test(h)) return null;
+  const today = iso(new Date()), out = {};
+  h.split(".").forEach(part => {
+    const [d, sl] = part.split("-");
+    const key = d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6, 8);
+    if (key >= today) out[key] = [...new Set(sl.split("").map(Number))].filter(i => i < 6).sort();
+  });
+  return Object.keys(out).length ? out : null;
+})();
+
 const NO_LINES = [
   "Oups, il est un peu timide…",
   "Il a eu peur, réessaie ?",
@@ -199,8 +214,8 @@ const NO_LINES = [
 ];
 
 const MANGER = [
-  ["🍕", "Pizza"], ["🍣", "Sushis"], ["🍔", "Burger"], ["🥞", "Crêpes"],
-  ["🍜", "Ramen"], ["🌮", "Tacos"], ["🧀", "Raclette"], ["🥗", "Un truc healthy"],
+  ["🍕", "Pizza"], ["🍣", "Sushis"], ["🍔", "Burger"], ["🥘", "Croziflette"],
+  ["🫕", "Fondue"], ["🌮", "Tacos"], ["🧀", "Raclette"], ["🥗", "Un truc healthy"],
   ["🎲", "Surprends-moi"],
 ];
 const APRES = [
@@ -219,7 +234,7 @@ const APRES_SPORT = [
   ["🍕", "Pizza"], ["🍺", "Une bière méritée"], ["🌊", "Baignade"], ["🧘", "Étirements"],
   ["😴", "Sieste"],
 ];
-const ALLURE = ["On marche, ça compte", "On papote en courant", "Rythme sympa", "Ça pique un peu", "On se bat pour le Strava"];
+const ALLURE = ["On marche, ça compte", "On papote en courant", "Kilian Jornet m'a dit que c'était une sortie facile", "Physiologiquement, à 3:20 je suis en footing", "On se bat pour le Strava"];
 
 function updateTop() {
   document.getElementById("counter").textContent = Math.min(step + 1, TOTAL) + " / " + TOTAL;
@@ -243,7 +258,7 @@ function backBtn() {
 function s1() {
   const s = el(`<div class="step">
     <div class="kicker">question très sérieuse</div>
-    <h1>Est-ce que tu veux sortir avec moi&nbsp;?</h1>
+    <h1>Ça te dit qu'on se voie&nbsp;?</h1>
     <p>Réponds honnêtement. Il y a une bonne réponse, évidemment.</p>
     <div class="row"><button class="btn yes" id="yes" type="button">Oui !</button><button class="btn no" id="no" type="button">Non</button></div>
     <div class="nohint" id="nohint"></div>
@@ -279,24 +294,26 @@ function resetNo() { document.querySelectorAll(".btn.no.flee").forEach(b => b.re
 
 /* 2. Le jour */
 function s2() {
-  const opts = [["Ce vendredi", prochain(5)], ["Ce samedi", prochain(6)], ["Ce dimanche", prochain(0)]];
+  const opts = DISPO
+    ? Object.keys(DISPO).sort().map(k => { const [y, m, d] = k.split("-").map(Number); const dt = new Date(y, m - 1, d); return [JOURS[dt.getDay()][0].toUpperCase() + JOURS[dt.getDay()].slice(1), dt]; })
+    : [["Ce vendredi", prochain(5)], ["Ce samedi", prochain(6)], ["Ce dimanche", prochain(0)]];
   const s = el(`<div class="step">
     <div class="kicker">yesss. bon, organisons ça</div>
     <h2>Quel jour ça t'arrange&nbsp;?</h2>
     <div class="grid three" id="g"></div>
-    <label class="field" for="date">Ou choisis une date précise
+    ${DISPO ? "<p>Ce sont mes jours libres, à toi de choisir.</p>" : `<label class="field" for="date">Ou choisis une date précise
       <input type="date" id="date" min="${iso(new Date())}">
-    </label>
+    </label>`}
     <button class="btn next" id="nx" type="button" disabled>Suivant</button>
   </div>`);
   const g = s.querySelector("#g"), date = s.querySelector("#date"), nx = s.querySelector("#nx");
-  const sync = () => { nx.disabled = !answers.jour; g.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.v === answers.jour)); date.value = answers.jour || ""; };
+  const sync = () => { nx.disabled = !answers.jour; g.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.v === answers.jour)); if (date) date.value = answers.jour || ""; };
   opts.forEach(([lab, d]) => {
     const c = el(`<button class="chip" type="button" data-v="${iso(d)}">${lab}<small>${d.getDate()} ${MOIS[d.getMonth()]}</small></button>`);
     c.onclick = () => { answers.jour = c.dataset.v; sync(); };
     g.appendChild(c);
   });
-  date.onchange = () => { answers.jour = date.value || null; sync(); };
+  if (date) date.onchange = () => { answers.jour = date.value || null; sync(); };
   nx.onclick = () => go(2);
   sync();
   s.prepend(backBtn());
@@ -305,23 +322,25 @@ function s2() {
 
 /* 3. L'heure */
 function s3() {
+  const slots = DISPO && DISPO[answers.jour] ? DISPO[answers.jour].map(i => HEURES[i]) : HEURES;
+  if (answers.heure && !slots.some(h => h[2] === answers.heure) && DISPO) answers.heure = null;
   const s = el(`<div class="step">
     <div class="kicker">le ${esc(joli(answers.jour))}, noté</div>
     <h2>À quelle heure&nbsp;?</h2>
-    <div class="grid" id="g"></div>
-    <label class="field" for="heure">Ou une heure précise
+    <div class="grid${slots.length % 3 === 0 && slots.length % 2 ? " three" : ""}" id="g"></div>
+    ${DISPO ? "" : `<label class="field" for="heure">Ou une heure précise
       <input type="time" id="heure" step="900">
-    </label>
+    </label>`}
     <button class="btn next" id="nx" type="button" disabled>Suivant</button>
   </div>`);
   const g = s.querySelector("#g"), t = s.querySelector("#heure"), nx = s.querySelector("#nx");
-  const sync = () => { nx.disabled = !answers.heure; g.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.v === answers.heure)); t.value = answers.heure || ""; };
-  HEURES.forEach(([em, lab, h]) => {
+  const sync = () => { nx.disabled = !answers.heure; g.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.v === answers.heure)); if (t) t.value = answers.heure || ""; };
+  slots.forEach(([em, lab, h]) => {
     const c = el(`<button class="chip" type="button" data-v="${h}"><span class="em">${em}</span>${lab}<small>${h.replace(":", "h")}</small></button>`);
     c.onclick = () => { answers.heure = h; sync(); };
     g.appendChild(c);
   });
-  t.onchange = () => { answers.heure = t.value || null; sync(); };
+  if (t) t.onchange = () => { answers.heure = t.value || null; sync(); };
   nx.onclick = () => go(3);
   sync();
   s.prepend(backBtn());
@@ -353,7 +372,8 @@ function multi(list, key, title, kicker, next, hint, nested) {
 function s4() {
   const s = el(`<div class="step">
     <div class="kicker">le programme</div>
-    <h2>On commence par quoi&nbsp;?</h2>
+    <div id="choix"><h2>On commence par quoi&nbsp;?</h2></div>
+    <div class="picked" id="picked" hidden></div>
     <div class="grid" id="mode">
       <button class="chip big" type="button" data-v="manger"><span class="em">🍽️</span>On mange<small>le plus important</small></button>
       <button class="chip big" type="button" data-v="bouger"><span class="em">👟</span>On bouge direct<small>on mangera après</small></button>
@@ -363,6 +383,11 @@ function s4() {
   const sub = s.querySelector("#sub");
   const show = () => {
     s.querySelectorAll("#mode .chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.v === answers.mode));
+    s.querySelector("#choix").hidden = s.querySelector("#mode").hidden = !!answers.mode;
+    const picked = s.querySelector("#picked");
+    picked.hidden = !answers.mode;
+    picked.innerHTML = answers.mode ? `<span>${answers.mode === "manger" ? "🍽️ On mange" : "👟 On bouge direct"}</span><button type="button" class="back">changer</button>` : "";
+    if (answers.mode) picked.querySelector("button").onclick = () => { answers.mode = null; show(); };
     sub.innerHTML = "";
     if (!answers.mode) return;
     const inner = answers.mode === "manger"
