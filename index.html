@@ -164,11 +164,31 @@ canvas#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 30; 
 </main>
 
 <script>
-// ——— À personnaliser ———
-const DE = "Gaël";            // qui envoie l'invitation
-// ————————————————
+// Réglages passés dans le lien par dispo.html : #c<JSON en base64url>
+// p = prénom de l'invitée, de = qui invite, d = dispos, b = "choix" | "manger" | "bouger",
+// s = 0 pour ne pas proposer de suite, m / sp / a / as = listes [emoji, texte]
+const CFG = (() => {
+  const h = location.hash.slice(1);
+  if (h[0] !== "c") return {};
+  try {
+    const bin = atob(h.slice(1).replace(/-/g, "+").replace(/_/g, "/"));
+    const o = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+    return o && typeof o === "object" ? o : {};
+  } catch (e) { return {}; }
+})();
+const txt = (v, n) => (typeof v === "string" ? v.trim().slice(0, n) : "");
+const DE = txt(CFG.de, 40) || "Gaël";      // qui envoie l'invitation
+const POUR = txt(CFG.p, 40);                 // prénom de l'invitée
+const MODE = ["manger", "bouger"].includes(CFG.b) ? CFG.b : null;
+const SUITE = CFG.s !== 0;
+function liste(l) {
+  if (!Array.isArray(l)) return null;
+  const out = l.filter(x => Array.isArray(x) && txt(x[1], 60)).map(x => [txt(x[0], 8) || "✨", txt(x[1], 60)]).slice(0, 15);
+  return out.length ? out : null;
+}
+if (POUR) document.title = "Un rendez-vous, " + POUR + " ?";
 
-const answers = { jour: null, heure: null, mode: null, manger: [], sport: [], apres: [], chic: 3, allure: 1, note: "" };
+const answers = { jour: null, heure: null, mode: MODE, manger: [], sport: [], apres: [], chic: 3, allure: 1, note: "" };
 let step = 0;
 let noTries = 0;
 const card = document.getElementById("card");
@@ -193,7 +213,7 @@ function prochain(jourIdx) {
 
 // Disponibilités passées dans le lien : #20261010-03.20261011-145 (date-indices des créneaux)
 const DISPO = (() => {
-  const h = decodeURIComponent(location.hash.slice(1));
+  const h = typeof CFG.d === "string" ? CFG.d : decodeURIComponent(location.hash.slice(1));
   if (!/^\d{8}-\d+(\.\d{8}-\d+)*$/.test(h)) return null;
   const today = iso(new Date()), out = {};
   h.split(".").forEach(part => {
@@ -213,23 +233,23 @@ const NO_LINES = [
   "Bon. On sait tous les deux comment ça finit.",
 ];
 
-const MANGER = [
+const MANGER = liste(CFG.m) || [
   ["🍕", "Pizza"], ["🍣", "Sushis"], ["🍔", "Burger"], ["🥘", "Croziflette"],
   ["🫕", "Fondue"], ["🌮", "Tacos"], ["🧀", "Raclette"], ["🥗", "Un truc healthy"],
   ["🎲", "Surprends-moi"],
 ];
-const APRES = [
+const APRES = liste(CFG.a) || [
   ["🎬", "Ciné"], ["🌙", "Balade"], ["🍋", "Tarte au citron meringuée"],
   ["🛏️", "Dessert et au lit"], ["🙅", "Pas de dessert, j'ai plus faim"], ["💬", "On digère en papotant"],
   ["🍦", "Glace"], ["🛋️", "Canapé et film"],
 ];
 const CHIC = ["Jogging assumé", "Jean et baskets", "Petite tenue sympa", "On se fait beaux", "Tapis rouge"];
 const HEURES = [["🌅", "Lever du soleil", "07:30"], ["☕", "Le matin", "09:30"], ["🥐", "Brunch", "11:00"], ["🍰", "Goûter", "16:00"], ["🥂", "Apéro", "18:30"], ["🕯️", "Dîner", "20:00"]];
-const SPORT = [
+const SPORT = liste(CFG.sp) || [
   ["🐢", "Footing tranquille"], ["⛰️", "Séance de côtes"], ["⏱️", "Fractionné"],
   ["🥾", "Rando machtou pichtou"], ["🛣️", "Sortie longue"], ["🎲", "Surprends-moi"],
 ];
-const APRES_SPORT = [
+const APRES_SPORT = liste(CFG.as) || [
   ["🥐", "Petit-déj"], ["🍳", "Brunch"], ["🥤", "Smoothie"], ["🥞", "Crêpes"],
   ["🍕", "Pizza"], ["🍺", "Une bière méritée"], ["🌊", "Baignade"], ["🧘", "Étirements"],
   ["😴", "Sieste"],
@@ -257,8 +277,8 @@ function backBtn() {
 /* 1. La question */
 function s1() {
   const s = el(`<div class="step">
-    <div class="kicker">question très sérieuse</div>
-    <h1>Ça te dit qu'on se voie&nbsp;?</h1>
+    <div class="kicker">question très sérieuse${POUR ? " pour " + esc(POUR) : ""}</div>
+    <h1>${POUR ? esc(POUR) + ", ç" : "Ç"}a te dit qu'on se voie&nbsp;?</h1>
     <p>Réponds honnêtement. Il y a une bonne réponse, évidemment.</p>
     <div class="row"><button class="btn yes" id="yes" type="button">Oui !</button><button class="btn no" id="no" type="button">Non</button></div>
     <div class="nohint" id="nohint"></div>
@@ -298,7 +318,7 @@ function s2() {
     ? Object.keys(DISPO).sort().map(k => { const [y, m, d] = k.split("-").map(Number); const dt = new Date(y, m - 1, d); return [JOURS[dt.getDay()][0].toUpperCase() + JOURS[dt.getDay()].slice(1), dt]; })
     : [["Ce vendredi", prochain(5)], ["Ce samedi", prochain(6)], ["Ce dimanche", prochain(0)]];
   const s = el(`<div class="step">
-    <div class="kicker">yesss. bon, organisons ça</div>
+    <div class="kicker">yesss${POUR ? " " + esc(POUR) : ""}. bon, organisons ça</div>
     <h2>Quel jour ça t'arrange&nbsp;?</h2>
     <div class="grid three" id="g"></div>
     ${DISPO ? "<p>Ce sont mes jours libres, à toi de choisir.</p>" : `<label class="field" for="date">Ou choisis une date précise
@@ -385,7 +405,7 @@ function s4() {
     s.querySelectorAll("#mode .chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.v === answers.mode));
     s.querySelector("#choix").hidden = s.querySelector("#mode").hidden = !!answers.mode;
     const picked = s.querySelector("#picked");
-    picked.hidden = !answers.mode;
+    picked.hidden = !answers.mode || !!MODE;
     picked.innerHTML = answers.mode ? `<span>${answers.mode === "manger" ? "🍽️ On mange" : "👟 On bouge direct"}</span><button type="button" class="back">changer</button>` : "";
     if (answers.mode) picked.querySelector("button").onclick = () => { answers.mode = null; show(); };
     sub.innerHTML = "";
@@ -405,7 +425,14 @@ function s4() {
 /* 5. Après + tenue + petit mot */
 function s5() {
   const sport = answers.mode === "bouger";
-  const s = sport
+  if (!SUITE) answers.apres = [];
+  const s = !SUITE
+    ? el(`<div class="step">
+        <div class="kicker">presque fini</div>
+        <h2>Un dernier détail</h2>
+        <button class="btn next" id="nx" type="button">Suivant</button>
+      </div>`)
+    : sport
     ? multi(APRES_SPORT, "apres", "Et après l'effort&nbsp;?", "le réconfort", 5, "Choisis ce qui te tente.")
     : multi(APRES, "apres", "Et après&nbsp;?", "la suite du programme", 5, "Choisis ce qui te tente.");
   const extra = el(`<div class="step" style="animation:none;gap:18px">
@@ -417,6 +444,7 @@ function s5() {
   const n = extra.querySelector("#note");
   n.value = answers.note; n.oninput = () => { answers.note = n.value; };
   s.insertBefore(extra, s.querySelector("#nx"));
+  if (!SUITE) { s.querySelector("#nx").onclick = () => go(5); s.prepend(backBtn()); }
   return s;
 }
 
@@ -436,10 +464,10 @@ function slider(key, labels, title, scale) {
 /* 6. Le billet */
 function recapTexte() {
   return [
-    "C'est oui ! 💌",
+    "C'est oui" + (POUR ? ", signé " + POUR : "") + " ! 💌",
     "📅 Le " + joli(answers.jour) + " à " + answers.heure.replace(":", "h"),
     answers.mode === "bouger" ? "👟 On bouge : " + answers.sport.join(", ") : "🍽️ À manger : " + answers.manger.join(", "),
-    "✨ Ensuite : " + answers.apres.join(", "),
+    answers.apres.length ? "✨ Ensuite : " + answers.apres.join(", ") : null,
     answers.mode === "bouger" ? "⏱️ Allure : " + ALLURE[answers.allure] : "👗 Tenue : " + CHIC[answers.chic],
     answers.note.trim() ? "📝 " + answers.note.trim() : null,
   ].filter(Boolean).join("\n");
@@ -449,7 +477,7 @@ function s6() {
   const s = el(`<div class="step">
     <div class="stamp">c'est<br>un date</div>
     <div class="kicker">c'est officiel</div>
-    <h2>Tu viens de faire le meilleur choix de ta journée.</h2>
+    <h2>${POUR ? esc(POUR) + ", tu" : "Tu"} viens de faire le meilleur choix de ta journée.</h2>
     <div class="ticket">
       <div class="t-head"><b>Billet de rendez-vous</b><span>N° ${num}</span></div>
       <dl>
@@ -457,11 +485,12 @@ function s6() {
         ${answers.mode === "bouger"
           ? `<dt>Sortie</dt><dd>${answers.sport.map(esc).join(", ")}</dd>`
           : `<dt>Miam</dt><dd>${answers.manger.map(esc).join(", ")}</dd>`}
-        <dt>Ensuite</dt><dd>${answers.apres.map(esc).join(", ")}</dd>
+        ${answers.apres.length ? `<dt>Ensuite</dt><dd>${answers.apres.map(esc).join(", ")}</dd>` : ""}
         ${answers.mode === "bouger"
           ? `<dt>Allure</dt><dd>${esc(ALLURE[answers.allure])}</dd>`
           : `<dt>Tenue</dt><dd>${esc(CHIC[answers.chic])}</dd>`}
         ${answers.note.trim() ? `<dt>Note</dt><dd>${esc(answers.note.trim())}</dd>` : ""}
+        ${POUR ? `<dt>Pour</dt><dd>${esc(POUR)}</dd>` : ""}
         <dt>Avec</dt><dd>${esc(DE)}</dd>
       </dl>
     </div>
