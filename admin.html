@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Suivi des invitations</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Caveat:wght@600&display=swap">
+<style>
+/* Même univers que l'invitation : un en-tête avec le mot de passe, puis une carte par visite, la plus récente en haut. */
+:root {
+  --paper: #ffe3ec; --card: #fffaf5; --ink: #2b1838; --cherry: #e6304f;
+  --butter: #ffd65c; --mint: #b8ecd7; --muted: #7d5a74; --line: #f2c2d1;
+  --f-display: "Shrikhand", "Cooper Black", Georgia, serif;
+  --f-body: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --f-hand: "Caveat", "Segoe Print", cursive;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px;
+  background-image: radial-gradient(var(--line) 1.4px, transparent 1.6px); background-size: 22px 22px;
+  padding-inline: 16px; padding-block: 24px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--card); border: 2.5px solid var(--ink); border-radius: 20px; box-shadow: 5px 6px 0 var(--ink); padding: 20px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+h1 { font-family: var(--f-display); font-weight: 400; font-size: clamp(28px, 8vw, 38px); margin: 0; line-height: 1.1; }
+p { margin: 0; color: var(--muted); line-height: 1.5; }
+.kicker { font-family: var(--f-hand); font-size: 24px; color: var(--cherry); }
+.login { display: flex; gap: 8px; flex-wrap: wrap; }
+.login input { flex: 1; min-width: 0; font: 600 16px var(--f-body); color: var(--ink); background: var(--card); border: 2px dashed var(--ink); border-radius: 12px; padding: 10px 12px; }
+.btn { font: 800 15px var(--f-body); border: 2.5px solid var(--ink); border-radius: 999px; padding: 10px 20px; cursor: pointer; background: var(--cherry); color: #fff; box-shadow: 3px 4px 0 var(--ink); }
+.btn:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--butter); outline-offset: 2px; }
+.msg { font-family: var(--f-hand); font-size: 22px; color: var(--cherry); min-height: 1.2em; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { border: 2px solid var(--ink); border-radius: 14px; padding: 10px; text-align: center; }
+.stat b { display: block; font-family: var(--f-display); font-weight: 400; font-size: 28px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.visit-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.visit-head b { font-size: 17px; }
+.visit-head time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { font-size: 12px; font-weight: 600; border: 2px solid var(--ink); border-radius: 999px; padding: 2px 10px; background: var(--card); }
+.pill.oui { background: var(--mint); }
+.pill.fin { background: var(--butter); }
+.pill.stop { background: var(--line); }
+.answer { white-space: pre-wrap; background: var(--paper); border: 2px dashed var(--ink); border-radius: 12px; padding: 12px; font-size: 14px; overflow-wrap: anywhere; }
+details summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+ol.tl { margin: 8px 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+ol.tl li { display: grid; grid-template-columns: 64px 90px minmax(0, 1fr); gap: 8px; font-size: 13px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+ol.tl li time { color: var(--muted); font-variant-numeric: tabular-nums; }
+ol.tl li span:last-child { overflow-wrap: anywhere; white-space: pre-wrap; }
+.empty { font-family: var(--f-hand); font-size: 22px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="card">
+    <div class="kicker">page réservée à l'organisateur</div>
+    <h1>Suivi des invitations</h1>
+    <p>Chaque ouverture de l'invitation apparaît ici, avec les boutons touchés et la réponse finale.</p>
+    <form class="login" id="login">
+      <input type="password" id="pwd" placeholder="Mot de passe du script" autocomplete="current-password" aria-label="Mot de passe">
+      <button class="btn" type="submit">Afficher</button>
+    </form>
+    <div class="msg" id="msg"></div>
+  </section>
+  <section class="card" id="resume" hidden>
+    <div class="stats" id="stats"></div>
+  </section>
+  <div id="visits" class="wrap" style="padding:0"></div>
+</main>
+<script>
+// Même URL que LOG_URL dans index.html.
+const LOG_URL = "";
+
+const msg = document.getElementById("msg"), pwd = document.getElementById("pwd");
+try { pwd.value = localStorage.getItem("datebloom-admin") || ""; } catch (e) {}
+const fmt = d => d.toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const heure = d => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+async function charger() {
+  if (!LOG_URL) { msg.textContent = "Le suivi n'est pas encore branché : l'URL du script est vide."; return; }
+  msg.textContent = "Chargement…";
+  try {
+    const r = await fetch(LOG_URL + "?key=" + encodeURIComponent(pwd.value));
+    const data = await r.json();
+    if (data.erreur) { msg.textContent = data.erreur; return; }
+    try { localStorage.setItem("datebloom-admin", pwd.value); } catch (e) {}
+    msg.textContent = "";
+    afficher(data.lignes || []);
+  } catch (e) { msg.textContent = "Impossible de joindre le script. Vérifie son URL et qu'il est déployé pour « Tout le monde »."; }
+}
+
+function afficher(lignes) {
+  const visites = new Map();
+  lignes.forEach(([date, v, pour, type, detail]) => {
+    if (!visites.has(v)) visites.set(v, { pour, evs: [] });
+    const vis = visites.get(v);
+    if (pour) vis.pour = pour;
+    vis.evs.push({ d: new Date(date), type, detail });
+  });
+  const liste = [...visites.values()].sort((a, b) => b.evs[0].d - a.evs[0].d);
+  const n = liste.length, oui = liste.filter(x => x.evs.some(e => e.type === "oui")).length, fin = liste.filter(x => x.evs.some(e => e.type === "réponse")).length;
+  const stats = document.getElementById("stats");
+  stats.innerHTML = "";
+  [[n, "visites"], [oui, "ont dit oui"], [fin, "réponses finies"]].forEach(([v, l]) => { const s = el("div", "stat"); s.append(el("b", "", v), el("span", "", l)); stats.append(s); });
+  document.getElementById("resume").hidden = false;
+
+  const box = document.getElementById("visits");
+  box.innerHTML = "";
+  if (!n) { const c = el("section", "card"); c.append(el("div", "empty", "Personne n'a encore ouvert l'invitation.")); box.append(c); return; }
+  liste.forEach(vis => {
+    const c = el("section", "card");
+    const head = el("div", "visit-head");
+    head.append(el("b", "", vis.pour ? "Pour " + vis.pour : "Invitation sans prénom"), el("time", "", fmt(vis.evs[0].d)));
+    c.append(head);
+
+    const pills = el("div", "pills");
+    const ouv = vis.evs.find(e => e.type === "ouverture");
+    if (ouv) { try { pills.append(el("span", "pill", JSON.parse(ouv.detail).appareil)); } catch (e) {} }
+    const nons = vis.evs.filter(e => e.type === "non").length;
+    if (nons) pills.append(el("span", "pill", nons + " tentative(s) sur Non"));
+    const etapes = vis.evs.filter(e => e.type === "étape").map(e => +e.detail);
+    const max = etapes.length ? Math.max(...etapes) : 1;
+    const aOui = vis.evs.some(e => e.type === "oui"), reponse = [...vis.evs].reverse().find(e => e.type === "réponse"), copie = vis.evs.some(e => e.type === "copie");
+    if (aOui) pills.append(el("span", "pill oui", "a dit oui"));
+    if (copie) pills.append(el("span", "pill fin", "a copié sa réponse"));
+    else if (reponse) pills.append(el("span", "pill fin", "réponse finie, pas copiée"));
+    else pills.append(el("span", "pill stop", "arrêtée à l'étape " + max + " / 6"));
+    const duree = Math.round((vis.evs[vis.evs.length - 1].d - vis.evs[0].d) / 1000);
+    pills.append(el("span", "pill", duree < 60 ? duree + " s" : Math.round(duree / 60) + " min"));
+    c.append(pills);
+
+    if (reponse) c.append(el("div", "answer", reponse.detail));
+
+    const det = el("details");
+    det.append(el("summary", "", "Tout le parcours (" + vis.evs.length + " actions)"));
+    const ol = el("ol", "tl");
+    vis.evs.forEach(e => {
+      const li = el("li");
+      let d = e.detail;
+      if (e.type === "ouverture") { try { const o = JSON.parse(d); d = o.appareil + ", écran " + o.largeur + " px" + (o.provenance ? ", depuis " + o.provenance : ""); } catch (x) {} }
+      li.append(el("time", "", heure(e.d)), el("span", "", e.type), el("span", "", d));
+      ol.append(li);
+    });
+    det.append(ol);
+    c.append(det);
+    box.append(c);
+  });
+}
+
+document.getElementById("login").onsubmit = e => { e.preventDefault(); charger(); };
+if (pwd.value) charger();
+</script>
+</body>
+</html>

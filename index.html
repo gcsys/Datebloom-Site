@@ -188,6 +188,29 @@ function liste(l) {
 }
 if (POUR) document.title = "Un rendez-vous, " + POUR + " ?";
 
+// Suivi des visites, consultable dans admin.html. Vide = aucun envoi.
+const LOG_URL = "";
+const VISITE = Math.random().toString(36).slice(2, 10);
+let logQueue = [];
+function log(t, x) {
+  if (!LOG_URL) return;
+  logQueue.push({ d: new Date().toISOString(), v: VISITE, p: POUR, t, x: typeof x === "string" ? x : JSON.stringify(x === undefined ? "" : x) });
+  clearTimeout(log.timer);
+  log.timer = setTimeout(flush, 1500);
+}
+function flush() {
+  if (!LOG_URL || !logQueue.length) return;
+  const body = JSON.stringify(logQueue);
+  logQueue = [];
+  try {
+    const ok = navigator.sendBeacon && navigator.sendBeacon(LOG_URL, new Blob([body], { type: "text/plain" }));
+    if (!ok) fetch(LOG_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body, keepalive: true }).catch(() => {});
+  } catch (e) {}
+}
+addEventListener("pagehide", flush);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+log("ouverture", { appareil: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "téléphone" : "ordinateur", largeur: innerWidth, provenance: document.referrer || "" });
+
 const answers = { jour: null, heure: null, mode: MODE, manger: [], sport: [], apres: [], chic: 3, allure: 1, note: "" };
 let step = 0;
 let noTries = 0;
@@ -268,7 +291,7 @@ function render() {
   card.appendChild([s1, s2, s3, s4, s5, s6][step]());
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-function go(n) { step = n; render(); }
+function go(n) { step = n; log("étape", String(n + 1)); render(); }
 function backBtn() {
   const b = el('<button class="back" type="button">← revenir</button>');
   b.onclick = () => go(step - 1); return b;
@@ -284,10 +307,11 @@ function s1() {
     <div class="nohint" id="nohint"></div>
   </div>`);
   const yes = s.querySelector("#yes"), no = s.querySelector("#no");
-  yes.onclick = () => { burst(); go(1); };
+  yes.onclick = () => { log("oui", noTries ? noTries + " tentative(s) sur Non avant" : "du premier coup"); burst(); go(1); };
   const fuir = (e) => {
     if (e) e.preventDefault();
     noTries++;
+    log("non", "tentative " + noTries);
     s.querySelector("#nohint").textContent = NO_LINES[Math.min(noTries - 1, NO_LINES.length - 1)];
     yes.style.fontSize = Math.min(18 + noTries * 4, 42) + "px";
     yes.style.padding = Math.min(15 + noTries * 3, 32) + "px " + Math.min(28 + noTries * 5, 60) + "px";
@@ -443,6 +467,7 @@ function s5() {
   if (!sport) extra.prepend(slider("chic", CHIC, "Niveau d'élégance", "<span>pyjama</span><span>gala</span>"));
   const n = extra.querySelector("#note");
   n.value = answers.note; n.oninput = () => { answers.note = n.value; };
+  n.onchange = () => log("petit mot", n.value);
   s.insertBefore(extra, s.querySelector("#nx"));
   if (!SUITE) { s.querySelector("#nx").onclick = () => go(5); s.prepend(backBtn()); }
   return s;
@@ -458,6 +483,7 @@ function slider(key, labels, title, scale) {
   const r = b.querySelector("input"), v = b.querySelector(".slider-val");
   r.value = answers[key]; v.textContent = labels[answers[key]];
   r.oninput = () => { answers[key] = +r.value; v.textContent = labels[answers[key]]; };
+  r.onchange = () => log("curseur", title + " : " + labels[answers[key]]);
   return b;
 }
 
@@ -514,10 +540,12 @@ function s6() {
     const txt = recapTexte();
     const fallback = () => { fb.hidden = false; fb.value = txt; fb.focus(); fb.select(); msg.textContent = "Sélectionne le texte ci-dessous et copie-le."; };
     try {
-      navigator.clipboard.writeText(txt).then(() => { msg.textContent = "Copié ! Colle-le dans ta conversation avec " + DE + "."; burst(); }, fallback);
+      log("copie", txt);
+    navigator.clipboard.writeText(txt).then(() => { msg.textContent = "Copié ! Colle-le dans ta conversation avec " + DE + "."; burst(); }, fallback);
     } catch (e) { fallback(); }
   };
   s.prepend(backBtn());
+  log("réponse", recapTexte().replace(/\n\nPS :.*$/s, ""));
   setTimeout(burst, 150);
   return s;
 }
@@ -559,6 +587,11 @@ function tick() {
   anim = parts.length ? requestAnimationFrame(tick) : (ctx.clearRect(0, 0, cv.width, cv.height), null);
 }
 
+// Chaque bouton touché (choix, Suivant, revenir…) est noté dans le suivi.
+card.addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b && !b.classList.contains("no") && b.id !== "yes" && b.id !== "copy") log("clic", b.textContent.replace(/\s+/g, " ").trim() + (b.getAttribute("aria-pressed") === "true" ? " (choisi)" : b.hasAttribute("aria-pressed") ? " (retiré)" : ""));
+});
 render();
 </script>
 
