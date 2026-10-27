@@ -209,7 +209,7 @@ function flush() {
 }
 addEventListener("pagehide", flush);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
-log("ouverture", { appareil: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "téléphone" : "ordinateur", largeur: innerWidth, provenance: document.referrer || "" });
+log("ouverture", { appareil: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "téléphone" : "ordinateur", largeur: innerWidth, provenance: document.referrer || "", lien: txt(CFG.l, 12) });
 
 const answers = { jour: null, heure: null, mode: MODE, manger: [], sport: [], apres: [], chic: 3, allure: 1, note: "" };
 let step = 0;

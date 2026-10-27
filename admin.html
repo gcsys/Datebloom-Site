@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Suivi des invitations</title>
+<title>Mes invitations</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Caveat:wght@600&display=swap">
 <style>
-/* Même univers que l'invitation : un en-tête avec le mot de passe, puis une carte par visite, la plus récente en haut. */
+/* Même univers que l'invitation. Deux onglets : « Créer un lien » (réglages, dispos, propositions) et « Suivi » (mes liens, puis une carte par visite). */
 :root {
   --paper: #ffe3ec; --card: #fffaf5; --ink: #2b1838; --cherry: #e6304f;
   --butter: #ffd65c; --mint: #b8ecd7; --muted: #7d5a74; --line: #f2c2d1;
@@ -30,8 +30,8 @@ p { margin: 0; color: var(--muted); line-height: 1.5; }
 .kicker { font-family: var(--f-hand); font-size: 24px; color: var(--cherry); }
 .login { display: flex; gap: 8px; flex-wrap: wrap; }
 .login input { flex: 1; min-width: 0; font: 600 16px var(--f-body); color: var(--ink); background: var(--card); border: 2px dashed var(--ink); border-radius: 12px; padding: 10px 12px; }
-.btn { font: 800 15px var(--f-body); border: 2.5px solid var(--ink); border-radius: 999px; padding: 10px 20px; cursor: pointer; background: var(--cherry); color: #fff; box-shadow: 3px 4px 0 var(--ink); }
-.btn:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--butter); outline-offset: 2px; }
+.btn { font: 800 15px var(--f-body); border: 2.5px solid var(--ink); border-radius: 999px; padding: 10px 20px; cursor: pointer; background: var(--cherry); color: #fff; box-shadow: 3px 4px 0 var(--ink); text-decoration: none; display: inline-block; }
+.btn:focus-visible, input:focus-visible, summary:focus-visible, .day:focus-visible, .slot:focus-visible, .tab:focus-visible, .mini:focus-visible { outline: 3px solid var(--butter); outline-offset: 2px; }
 .msg { font-family: var(--f-hand); font-size: 22px; color: var(--cherry); min-height: 1.2em; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .stat { border: 2px solid var(--ink); border-radius: 14px; padding: 10px; text-align: center; }
@@ -61,13 +61,121 @@ ol.tl li span:last-child { overflow-wrap: anywhere; white-space: pre-wrap; }
 .pick input { width: 20px; height: 20px; accent-color: var(--cherry); margin: 0; }
 .card.selected { outline: 3px solid var(--cherry); outline-offset: 2px; }
 .empty { font-family: var(--f-hand); font-size: 22px; color: var(--muted); text-align: center; }
+h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal .dow { text-align: center; font-size: 12px; color: var(--muted); font-weight: 600; }
+.day { font: 600 15px var(--f-body); color: var(--ink); background: var(--card); border: 2px solid var(--ink); border-radius: 10px; padding: 8px 0; cursor: pointer; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.day small { font-size: 10px; font-weight: 400; color: var(--muted); }
+.day[aria-pressed="true"] { background: var(--butter); box-shadow: 2px 2px 0 var(--ink); }
+.day:disabled { visibility: hidden; }
+.list { display: flex; flex-direction: column; gap: 12px; }
+.row { border: 2px dashed var(--ink); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.slots { display: flex; flex-wrap: wrap; gap: 6px; }
+.slot { font: 600 13px var(--f-body); color: var(--ink); background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 10px; cursor: pointer; }
+.slot[aria-pressed="true"] { background: var(--cherry); color: #fff; }
+.link { font: 13px ui-monospace, Menlo, monospace; background: var(--paper); border: 2px solid var(--ink); border-radius: 12px; padding: 12px; overflow-wrap: anywhere; user-select: all; }
+.btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn.alt { background: var(--card); color: var(--ink); }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.ok { font-family: var(--f-hand); font-size: 22px; color: var(--cherry); min-height: 1.2em; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 420px) { .fields { grid-template-columns: minmax(0, 1fr); } }
+label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 14px; }
+input[type="text"] { font: 600 16px var(--f-body); color: var(--ink); background: var(--card); border: 2px dashed var(--ink); border-radius: 12px; padding: 10px 12px; width: 100%; min-width: 0; }
+input[type="text"]:focus-visible { outline: 3px solid var(--butter); outline-offset: 2px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.opt { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; cursor: pointer; }
+.opt input { width: 20px; height: 20px; accent-color: var(--cherry); margin: 1px 0 0; flex: none; }
+.opt small { display: block; font-weight: 400; color: var(--muted); }
+.lists { display: flex; flex-direction: column; gap: 14px; }
+.ed { border: 2px dashed var(--ink); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ed-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ed-head b { font-size: 15px; }
+.reset { background: none; border: 0; color: var(--muted); font: 600 13px var(--f-body); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; padding: 0; }
+.items { display: flex; flex-wrap: wrap; gap: 6px; }
+.item { display: inline-flex; align-items: center; gap: 4px; background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 14px; font-weight: 600; max-width: 100%; }
+.item span { overflow-wrap: anywhere; }
+.item button { border: 0; background: var(--paper); color: var(--ink); border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font: 800 14px var(--f-body); flex: none; }
+.add { display: flex; gap: 6px; }
+.add input.em { width: 52px; flex: none; text-align: center; padding-inline: 4px; }
+.add input.lab { flex: 1; min-width: 0; }
+.add .btn { padding: 8px 16px; font-size: 14px; }
+.hint { font-size: 13px; }
+.tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; background: var(--paper); border: 2px solid var(--ink); border-radius: 999px; padding: 4px; }
+.tab { font: 800 15px var(--f-body); color: var(--ink); background: transparent; border: 0; border-radius: 999px; padding: 10px 8px; cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--card); }
+.liens { display: flex; flex-direction: column; gap: 10px; }
+.lien { border: 2px dashed var(--ink); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.lien-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lien-head b { font-size: 16px; }
+.lien-head time, .lien small { color: var(--muted); font-size: 13px; }
+.lien.actif { border-style: solid; background: var(--paper); }
+.filtre { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; }
 </style>
 </head>
 <body>
 <main class="wrap">
   <section class="card">
     <div class="kicker">page réservée à l'organisateur</div>
-    <h1>Suivi des invitations</h1>
+    <h1>Mes invitations</h1>
+    <p>Crée un lien personnalisé, envoie-le, puis regarde qui l'a ouvert et ce qui a été choisi.</p>
+    <div class="tabs" role="tablist">
+      <button class="tab" type="button" role="tab" id="t-creer" aria-controls="p-creer">Créer un lien</button>
+      <button class="tab" type="button" role="tab" id="t-suivi" aria-controls="p-suivi">Suivi</button>
+    </div>
+  </section>
+
+  <div id="p-creer" class="wrap" role="tabpanel" aria-labelledby="t-creer" style="padding:0;width:100%">
+  <section class="card">
+    <h2>Pour qui ?</h2>
+    <div class="fields">
+      <label class="f" for="pour">Son prénom
+        <input type="text" id="pour" maxlength="40" placeholder="Ex. : Léa" autocomplete="off">
+      </label>
+      <label class="f" for="de">Ton prénom
+        <input type="text" id="de" maxlength="40" placeholder="Gaël" autocomplete="off">
+      </label>
+    </div>
+  </section>
+
+
+  <section class="card">
+    <h2>Disponibilités</h2>
+    <p>Touche les jours où tu es libre, puis retire les créneaux qui ne vont pas. Sans jour choisi, l'invitation propose le week-end qui vient et une date libre.</p>
+    <div class="cal" id="cal"></div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="card">
+    <h2>Programme</h2>
+    <div class="seg" role="radiogroup" aria-label="Programme">
+      <label class="opt"><input type="radio" name="mode" value="choix" id="m-choix"><span>Lui laisser le choix<small>« On mange » ou « On bouge direct »</small></span></label>
+      <label class="opt"><input type="radio" name="mode" value="manger" id="m-manger"><span>Seulement manger<small>pas de proposition sportive</small></span></label>
+      <label class="opt"><input type="radio" name="mode" value="bouger" id="m-bouger"><span>Seulement bouger<small>on mangera après l'effort</small></span></label>
+    </div>
+    <label class="opt"><input type="checkbox" id="suite"><span>Proposer une suite<small>l'écran « Et après ? »</small></span></label>
+  </section>
+
+  <section class="card">
+    <h2>Propositions</h2>
+    <p class="hint">Retire une proposition avec ×, ou ajoutes-en une avec un emoji et un texte.</p>
+    <div class="lists" id="lists"></div>
+  </section>
+
+  <section class="card">
+    <h2>Lien à envoyer</h2>
+    <div class="link" id="link"></div>
+    <div class="btns">
+      <button class="btn" id="copy" type="button">Copier le lien</button>
+      <a class="btn alt" id="test" href="./" target="_blank" rel="noopener">Tester</a>
+    </div>
+    <div class="ok" id="ok"></div>
+  </section>
+  </div>
+
+  <div id="p-suivi" class="wrap" role="tabpanel" aria-labelledby="t-suivi" style="padding:0;width:100%" hidden>
+  <section class="card">
+    <h2>Suivi</h2>
     <p>Chaque ouverture de l'invitation apparaît ici, avec les boutons touchés et la réponse finale.</p>
     <form class="login" id="login">
       <input type="password" id="pwd" placeholder="Mot de passe du script" autocomplete="current-password" aria-label="Mot de passe">
@@ -75,7 +183,12 @@ ol.tl li span:last-child { overflow-wrap: anywhere; white-space: pre-wrap; }
     </form>
     <div class="msg" id="msg"></div>
   </section>
+  <section class="card" id="mesliens">
+    <h2>Mes liens</h2>
+    <div class="liens" id="liens"></div>
+  </section>
   <section class="card" id="resume" hidden>
+    <div class="filtre" id="filtre" hidden></div>
     <div class="stats" id="stats"></div>
     <div class="tools">
       <button class="mini" type="button" id="sel-inachevees">Sélectionner les non finalisées</button>
@@ -87,8 +200,204 @@ ol.tl li span:last-child { overflow-wrap: anywhere; white-space: pre-wrap; }
     <span id="bar-txt"></span>
     <div class="tools" id="bar-btns"></div>
   </div>
+  </div>
 </main>
 <script>
+// Ces listes par défaut doivent rester identiques à celles d'index.html.
+const DEFAUTS = {
+  m: [["🍕", "Pizza"], ["🍣", "Sushis"], ["🍔", "Burger"], ["🥘", "Croziflette"], ["🫕", "Fondue"], ["🌮", "Tacos"], ["🧀", "Raclette"], ["🥗", "Un truc healthy"], ["🎲", "Surprends-moi"]],
+  a: [["🎬", "Ciné"], ["🌙", "Balade"], ["🍋", "Tarte au citron meringuée"], ["🛏️", "Dessert et au lit"], ["🙅", "Pas de dessert, j'ai plus faim"], ["💬", "On digère en papotant"], ["🍦", "Glace"], ["🛋️", "Canapé et film"]],
+  sp: [["🐢", "Footing tranquille"], ["⛰️", "Séance de côtes"], ["⏱️", "Fractionné"], ["🥾", "Rando machtou pichtou"], ["🛣️", "Sortie longue"], ["🎲", "Surprends-moi"]],
+  as: [["🥐", "Petit-déj"], ["🍳", "Brunch"], ["🥤", "Smoothie"], ["🥞", "Crêpes"], ["🍕", "Pizza"], ["🍺", "Une bière méritée"], ["🌊", "Baignade"], ["🧘", "Étirements"], ["😴", "Sieste"]],
+};
+const NOMS = { m: "On mange quoi ?", a: "Et après ? (après le repas)", sp: "On fait quelle sortie ?", as: "Et après l'effort ?" };
+const SLOTS = ["Lever du soleil 7h30", "Matin 9h30", "Brunch 11h", "Goûter 16h", "Apéro 18h30", "Dîner 20h"];
+const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const pad = n => String(n).padStart(2, "0");
+const key = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+const clone = o => JSON.parse(JSON.stringify(o));
+
+// État : réglages + dispos ("20261010" -> Set d'indices)
+let st = { p: "", de: "", b: "choix", s: 1, m: clone(DEFAUTS.m), a: clone(DEFAUTS.a), sp: clone(DEFAUTS.sp), as: clone(DEFAUTS.as) };
+const sel = {};
+
+function decode(h) {
+  if (h[0] !== "c") return null;
+  try {
+    const bin = atob(h.slice(1).replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+  } catch (e) { return null; }
+}
+function encode(o) {
+  const bytes = new TextEncoder().encode(JSON.stringify(o));
+  let bin = ""; bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return "c" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function chargerConfig(o) {
+  if (!o || typeof o !== "object") return;
+  ["p", "de"].forEach(k => { if (typeof o[k] === "string") st[k] = o[k]; });
+  if (["choix", "manger", "bouger"].includes(o.b)) st.b = o.b;
+  if (o.s === 0 || o.s === 1) st.s = o.s;
+  ["m", "a", "sp", "as"].forEach(k => { if (Array.isArray(o[k]) && o[k].length) st[k] = o[k]; });
+  if (typeof o.d === "string") lireDispo(o.d);
+}
+function lireDispo(str) {
+  (str.match(/\d{8}-\d+/g) || []).forEach(p => { const [d, s] = p.split("-"); sel[d] = new Set(s.split("").map(Number).filter(i => i < 6)); });
+}
+
+// Priorité : un lien collé après # (ancien ou nouveau format), sinon les derniers réglages enregistrés
+const h = location.hash.slice(1);
+if (decode(h)) chargerConfig(decode(h));
+else if (/\d{8}-\d+/.test(h)) lireDispo(h);
+else { try { const saved = JSON.parse(localStorage.getItem("datebloom-reglages") || "null"); if (saved) { const d = saved.d; delete saved.d; chargerConfig(saved); if (d) lireDispo(d); } } catch (e) {} }
+
+function code() {
+  const t = key(new Date());
+  return Object.keys(sel).sort().filter(k => k >= t && sel[k].size).map(k => k + "-" + [...sel[k]].sort().join("")).join(".");
+}
+
+/* Calendrier */
+const cal = document.getElementById("cal");
+const today = new Date(); today.setHours(12, 0, 0, 0);
+const start = new Date(today); start.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // lundi
+["L", "M", "M", "J", "V", "S", "D"].forEach(l => { const e = document.createElement("div"); e.className = "dow"; e.textContent = l; cal.appendChild(e); });
+for (let i = 0; i < 35; i++) {
+  const d = new Date(start); d.setDate(start.getDate() + i);
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "day"; b.dataset.k = key(d);
+  b.innerHTML = d.getDate() + "<small>" + MOIS[d.getMonth()] + "</small>";
+  if (d < today) b.disabled = true;
+  b.onclick = () => { const k = b.dataset.k; sel[k] ? delete sel[k] : (sel[k] = new Set([0, 1, 2, 3, 4, 5])); renderJours(); };
+  cal.appendChild(b);
+}
+function renderJours() {
+  cal.querySelectorAll(".day").forEach(b => b.setAttribute("aria-pressed", !!sel[b.dataset.k]));
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  Object.keys(sel).sort().filter(k => k >= key(new Date())).forEach(k => {
+    const d = new Date(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6));
+    const row = document.createElement("div"); row.className = "row";
+    row.innerHTML = "<b>" + JOURS[d.getDay()][0].toUpperCase() + JOURS[d.getDay()].slice(1) + " " + d.getDate() + " " + MOIS[d.getMonth()] + "</b><div class='slots'></div>";
+    SLOTS.forEach((s, i) => {
+      const c = document.createElement("button"); c.type = "button"; c.className = "slot"; c.textContent = s;
+      c.setAttribute("aria-pressed", sel[k].has(i));
+      c.onclick = () => { sel[k].has(i) ? sel[k].delete(i) : sel[k].add(i); renderJours(); };
+      row.querySelector(".slots").appendChild(c);
+    });
+    list.appendChild(row);
+  });
+  renderLien();
+}
+
+/* Prénoms et programme */
+const pour = document.getElementById("pour"), de = document.getElementById("de"), suite = document.getElementById("suite");
+function remplirChamps() {
+  pour.value = st.p; de.value = st.de;
+  document.getElementById("m-" + st.b).checked = true;
+  suite.checked = st.s === 1;
+}
+remplirChamps();
+pour.oninput = () => { st.p = pour.value; renderLien(); };
+de.oninput = () => { st.de = de.value; renderLien(); };
+document.querySelectorAll('input[name="mode"]').forEach(r => r.onchange = () => { st.b = r.value; renderListes(); });
+suite.onchange = () => { st.s = suite.checked ? 1 : 0; renderListes(); };
+
+/* Éditeur de propositions */
+function renderListes() {
+  const box = document.getElementById("lists");
+  box.innerHTML = "";
+  const visibles = [];
+  if (st.b !== "bouger") { visibles.push("m"); if (st.s) visibles.push("a"); }
+  if (st.b !== "manger") { visibles.push("sp"); if (st.s) visibles.push("as"); }
+  visibles.forEach(k => {
+    const ed = document.createElement("div"); ed.className = "ed";
+    ed.innerHTML = `<div class="ed-head"><b></b><button type="button" class="reset">remettre par défaut</button></div><div class="items"></div>
+      <form class="add"><input type="text" class="em" maxlength="8" placeholder="🍝" aria-label="Emoji"><input type="text" class="lab" maxlength="60" placeholder="Nouvelle proposition" aria-label="Texte"><button class="btn" type="submit">Ajouter</button></form>`;
+    ed.querySelector("b").textContent = NOMS[k];
+    ed.querySelector(".reset").onclick = () => { st[k] = clone(DEFAUTS[k]); renderListes(); };
+    const items = ed.querySelector(".items");
+    st[k].forEach(([em, lab], i) => {
+      const it = document.createElement("div"); it.className = "item";
+      it.innerHTML = "<span></span><button type='button'>×</button>";
+      it.querySelector("span").textContent = em + " " + lab;
+      const x = it.querySelector("button");
+      x.setAttribute("aria-label", "Retirer " + lab);
+      x.disabled = st[k].length === 1; x.title = st[k].length === 1 ? "Il faut garder au moins une proposition" : "Retirer";
+      x.onclick = () => { st[k].splice(i, 1); renderListes(); };
+      items.appendChild(it);
+    });
+    ed.querySelector("form").onsubmit = (e) => {
+      e.preventDefault();
+      const em = ed.querySelector(".em").value.trim(), lab = ed.querySelector(".lab").value.trim();
+      if (!lab) { ed.querySelector(".lab").focus(); return; }
+      if (st[k].length >= 15) return;
+      st[k].push([em || "✨", lab]); renderListes();
+      document.querySelectorAll(".ed .lab")[visibles.indexOf(k)].focus();
+    };
+    box.appendChild(ed);
+  });
+  renderLien();
+}
+
+/* Lien */
+function config() {
+  const o = {};
+  if (st.p.trim()) o.p = st.p.trim();
+  if (st.de.trim()) o.de = st.de.trim();
+  const d = code(); if (d) o.d = d;
+  if (st.b !== "choix") o.b = st.b;
+  if (!st.s) o.s = 0;
+  ["m", "a", "sp", "as"].forEach(k => { if (JSON.stringify(st[k]) !== JSON.stringify(DEFAUTS[k])) o[k] = st[k]; });
+  o.l = empreinte(JSON.stringify(o)); // identifiant du lien, le même pour les mêmes réglages
+  return o;
+}
+function empreinte(t) {
+  let h = 2166136261;
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
+}
+function urlDe(o) { return new URL("./", location.href).href + "#" + encode(o); }
+function renderLien() {
+  const o = config();
+  try { localStorage.setItem("datebloom-reglages", JSON.stringify(Object.assign({}, st, { d: code() }))); } catch (e) {}
+  const url = urlDe(o);
+  document.getElementById("link").textContent = url;
+  document.getElementById("test").href = url;
+  document.getElementById("ok").textContent = "";
+}
+document.getElementById("copy").onclick = () => {
+  const t = document.getElementById("link").textContent, ok = document.getElementById("ok");
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents(document.getElementById("link")); getSelection().removeAllRanges(); getSelection().addRange(r); ok.textContent = "Lien sélectionné, copie-le."; };
+  memoriserLien();
+  try { navigator.clipboard.writeText(t).then(() => { ok.textContent = "Lien copié ! Il est aussi dans « Mes liens », onglet Suivi."; }, fallback); } catch (e) { fallback(); }
+};
+document.getElementById("test").addEventListener("click", memoriserLien);
+
+/* Mes liens : gardés dans ce navigateur pour les retrouver dans le suivi */
+function lireLiens() { try { return JSON.parse(localStorage.getItem("datebloom-liens") || "[]"); } catch (e) { return []; } }
+function ecrireLiens(l) { try { localStorage.setItem("datebloom-liens", JSON.stringify(l)); } catch (e) {} }
+function memoriserLien() {
+  const o = config(), liens = lireLiens().filter(x => x.l !== o.l);
+  liens.unshift({ l: o.l, p: st.p.trim(), url: urlDe(o), date: new Date().toISOString() });
+  ecrireLiens(liens.slice(0, 50));
+  renderMesLiens();
+}
+// « Modifier » depuis le suivi : recharge les réglages d'un lien dans l'onglet Créer
+function reprendreLien(url) {
+  const o = decode((url.split("#")[1]) || "");
+  if (!o) return;
+  st = { p: "", de: "", b: "choix", s: 1, m: clone(DEFAUTS.m), a: clone(DEFAUTS.a), sp: clone(DEFAUTS.sp), as: clone(DEFAUTS.as) };
+  Object.keys(sel).forEach(k => delete sel[k]);
+  chargerConfig(o);
+  remplirChamps(); renderJours(); renderListes();
+  ouvrirOnglet("creer");
+  document.getElementById("ok").textContent = "Réglages repris. Modifier un réglage crée un nouveau lien.";
+}
+renderJours();
+renderListes();
+
+/* ——— Suivi ——— */
 // Même URL que LOG_URL dans index.html.
 const LOG_URL = "https://script.google.com/macros/s/AKfycbyH_JL5Jm33AN2mC8udQxOY5igIWdzVvJcLj9OB51uxxIuJ90G1xMlFY3X9Ii5AfSWl0A/exec";
 
@@ -98,7 +407,7 @@ const fmt = d => d.toLocaleString("fr-FR", { weekday: "short", day: "numeric", m
 const heure = d => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
-async function charger(garderMsg) {
+async function chargerSuivi(garderMsg) {
   if (!LOG_URL) { msg.textContent = "Le suivi n'est pas encore branché : l'URL du script est vide."; return; }
   if (!garderMsg) msg.textContent = "Chargement…";
   try {
@@ -112,17 +421,30 @@ async function charger(garderMsg) {
 }
 
 const choisies = new Set();
-let derniere = [];
+let derniere = [], toutes = [], lignesBrutes = null, filtreLien = null;
 function afficher(lignes) {
+  lignesBrutes = lignes;
   const visites = new Map();
   lignes.forEach(([date, v, pour, type, detail]) => {
-    if (!visites.has(v)) visites.set(v, { id: v, pour, evs: [] });
+    if (!visites.has(v)) visites.set(v, { id: v, pour, lien: "", evs: [] });
     const vis = visites.get(v);
     if (pour) vis.pour = pour;
+    if (type === "ouverture") { try { vis.lien = JSON.parse(detail).lien || ""; } catch (e) {} }
     vis.evs.push({ d: new Date(date), type, detail });
   });
-  const liste = [...visites.values()].sort((a, b) => b.evs[0].d - a.evs[0].d);
+  toutes = [...visites.values()].sort((a, b) => b.evs[0].d - a.evs[0].d);
+  const liste = filtreLien ? toutes.filter(v => v.lien === filtreLien) : toutes;
   derniere = liste;
+  renderMesLiens();
+  const f = document.getElementById("filtre");
+  f.hidden = !filtreLien;
+  f.innerHTML = "";
+  if (filtreLien) {
+    const lk = lireLiens().find(x => x.l === filtreLien);
+    const b = el("button", "mini", "Voir toutes les visites"); b.type = "button";
+    b.onclick = () => { filtreLien = null; afficher(lignesBrutes); };
+    f.append(el("span", "", "Visites du lien " + (lk && lk.p ? "pour " + lk.p : filtreLien)), b);
+  }
   [...choisies].forEach(id => { if (!visites.has(id)) choisies.delete(id); });
   const n = liste.length, oui = liste.filter(x => x.evs.some(e => e.type === "oui")).length, fin = liste.filter(x => x.evs.some(e => e.type === "réponse")).length;
   const stats = document.getElementById("stats");
@@ -144,6 +466,8 @@ function afficher(lignes) {
     const head = el("div", "visit-head");
     head.append(el("b", "", vis.pour ? "Pour " + vis.pour : "Invitation sans prénom"), el("time", "", fmt(vis.evs[0].d)));
     c.append(head);
+    const lk = vis.lien && lireLiens().find(x => x.l === vis.lien);
+    c.append(el("p", "", vis.lien ? (lk ? "Lien créé le " + fmt(new Date(lk.date)) : "Lien " + vis.lien + " (créé sur un autre appareil)") : "Lien sans identifiant (ancien lien ou lien simple)"));
 
     const pills = el("div", "pills");
     const ouv = vis.evs.find(e => e.type === "ouverture");
@@ -169,7 +493,7 @@ function afficher(lignes) {
     vis.evs.forEach(e => {
       const li = el("li");
       let d = e.detail;
-      if (e.type === "ouverture") { try { const o = JSON.parse(d); d = o.appareil + ", écran " + o.largeur + " px" + (o.provenance ? ", depuis " + o.provenance : ""); } catch (x) {} }
+      if (e.type === "ouverture") { try { const o = JSON.parse(d); d = o.appareil + ", écran " + o.largeur + " px" + (o.provenance ? ", depuis " + o.provenance : "") + (o.lien ? ", lien " + o.lien : ""); } catch (x) {} }
       li.append(el("time", "", heure(e.d)), el("span", "", e.type), el("span", "", d));
       ol.append(li);
     });
@@ -217,14 +541,59 @@ async function supprimer() {
     if (data.supprimees === undefined) { msg.textContent = "Le script n'a pas encore la suppression : publie sa nouvelle version (voir le README)."; return; }
     choisies.clear(); confirmer = false;
     msg.textContent = data.supprimees + " ligne" + (data.supprimees > 1 ? "s" : "") + " supprimée" + (data.supprimees > 1 ? "s" : "") + ".";
-    await charger(true);
+    await chargerSuivi(true);
   } catch (e) { msg.textContent = "La suppression n'a pas abouti. Réessaie dans un instant."; }
 }
 document.getElementById("sel-inachevees").onclick = () => { derniere.filter(v => !finie(v)).forEach(v => choisies.add(v.id)); confirmer = false; majBarre(); };
 document.getElementById("sel-rien").onclick = () => { choisies.clear(); confirmer = false; majBarre(); };
 
-document.getElementById("login").onsubmit = e => { e.preventDefault(); charger(); };
-if (pwd.value) charger();
+function renderMesLiens() {
+  const box = document.getElementById("liens");
+  box.innerHTML = "";
+  const liens = lireLiens();
+  if (!liens.length) { box.append(el("div", "empty", "Aucun lien pour l'instant. Crée-en un dans l'onglet « Créer un lien ».")); return; }
+  liens.forEach(lk => {
+    const c = el("div", "lien" + (filtreLien === lk.l ? " actif" : ""));
+    const head = el("div", "lien-head");
+    head.append(el("b", "", lk.p ? "Pour " + lk.p : "Sans prénom"), el("time", "", "créé le " + fmt(new Date(lk.date))));
+    c.append(head);
+    if (lignesBrutes) {
+      const vs = toutes.filter(v => v.lien === lk.l);
+      const oui = vs.filter(v => v.evs.some(e => e.type === "oui")).length, fin = vs.filter(finie).length;
+      c.append(el("small", "", vs.length ? vs.length + " ouverture" + (vs.length > 1 ? "s" : "") + " · " + oui + " oui · " + fin + " réponse" + (fin > 1 ? "s" : "") + " finie" + (fin > 1 ? "s" : "") : "Pas encore ouvert"));
+    } else c.append(el("small", "", "Tape ton mot de passe pour voir les ouvertures."));
+    const t = el("div", "tools");
+    const mk = (txt, fn) => { const b = el("button", "mini", txt); b.type = "button"; b.onclick = fn; t.append(b); return b; };
+    const cp = mk("Copier", () => {
+      const done = () => { cp.textContent = "Copié !"; setTimeout(() => { cp.textContent = "Copier"; }, 1500); };
+      try { navigator.clipboard.writeText(lk.url).then(done, () => { msg.textContent = lk.url; }); } catch (e) { msg.textContent = lk.url; }
+    });
+    if (lignesBrutes) mk("Voir ses visites", () => { filtreLien = lk.l; afficher(lignesBrutes); document.getElementById("resume").scrollIntoView({ behavior: "smooth" }); });
+    mk("Modifier", () => reprendreLien(lk.url));
+    mk("Retirer de la liste", () => { ecrireLiens(lireLiens().filter(x => x.l !== lk.l)); if (filtreLien === lk.l) filtreLien = null; lignesBrutes ? afficher(lignesBrutes) : renderMesLiens(); });
+    c.append(t);
+    box.append(c);
+  });
+}
+
+document.getElementById("login").onsubmit = e => { e.preventDefault(); chargerSuivi(); };
+renderMesLiens();
+if (pwd.value) chargerSuivi();
+
+/* ——— Onglets ——— */
+function ouvrirOnglet(nom) {
+  ["creer", "suivi"].forEach(n => {
+    document.getElementById("t-" + n).setAttribute("aria-selected", n === nom);
+    document.getElementById("p-" + n).hidden = n !== nom;
+  });
+  try { localStorage.setItem("datebloom-onglet", nom); } catch (e) {}
+  window.scrollTo({ top: 0 });
+}
+document.getElementById("t-creer").onclick = () => ouvrirOnglet("creer");
+document.getElementById("t-suivi").onclick = () => ouvrirOnglet("suivi");
+let ongletInitial = "creer";
+try { ongletInitial = localStorage.getItem("datebloom-onglet") || "creer"; } catch (e) {}
+ouvrirOnglet(location.hash.length > 1 ? "creer" : ongletInitial);
 </script>
 </body>
 </html>
