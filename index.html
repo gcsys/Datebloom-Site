@@ -146,6 +146,9 @@ input[type="range"] { width: 100%; accent-color: var(--cherry); }
 }
 .copied { font-family: var(--f-hand); font-size: 22px; color: var(--cherry); min-height: 1.2em; text-align: center; }
 #fallback { width: 100%; min-height: 160px; font-size: 14px; }
+.video { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; border: 2.5px solid var(--ink); border-radius: 16px; overflow: hidden; background: var(--ink); }
+.video iframe, .video video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.video-lien { text-align: center; text-decoration: none; }
 canvas#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 30; width: 100%; height: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .step { animation: none; }
@@ -164,8 +167,34 @@ canvas#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 30; 
 </main>
 
 <script>
-// Réglages passés dans le lien par dispo.html : #c<JSON en base64url>
-// p = prénom de l'invitée, de = qui invite, d = dispos, b = "choix" | "manger" | "bouger",
+// Vidéo du ticket : YouTube, Vimeo ou fichier vidéo direct (https uniquement)
+function analyserVideo(url) {
+  let u;
+  try { u = new URL(String(url || "").trim()); } catch (e) { return null; }
+  if (u.protocol !== "https:") return null;
+  const host = u.hostname.replace(/^www\.|^m\./, "");
+  let id = null;
+  if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0];
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    id = u.searchParams.get("v") || (u.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]+)/) || [])[1];
+  }
+  if (id && /^[\w-]{6,20}$/.test(id)) return { type: "YouTube", src: "https://www.youtube-nocookie.com/embed/" + id + "?rel=0&playsinline=1" };
+  if (host === "vimeo.com" || host === "player.vimeo.com") {
+    const v = (u.pathname.match(/(\d{6,12})/) || [])[1];
+    if (v) return { type: "Vimeo", src: "https://player.vimeo.com/video/" + v };
+  }
+  if (/\.(mp4|webm|mov|m4v)$/i.test(u.pathname)) return { type: "fichier", src: u.href };
+  return { type: "lien", src: u.href };
+}
+function videoBloc() {
+  if (!VIDEO) return "";
+  if (VIDEO.type === "lien") return `<a class="btn next video-lien" href="${esc(VIDEO.src)}" target="_blank" rel="noopener">▶ Une petite vidéo pour toi</a>`;
+  if (VIDEO.type === "fichier") return `<div class="video"><video src="${esc(VIDEO.src)}" controls playsinline preload="metadata"></video></div>`;
+  return `<div class="video"><iframe src="${esc(VIDEO.src)}" title="Vidéo" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
+}
+
+// Réglages passés dans le lien par admin.html : #c<JSON en base64url>
+// p = prénom de l'invitée, de = qui invite, d = dispos, b = "choix" | "manger" | "bouger", v / vp = vidéo et position ("haut" | "bas"),
 // s = 0 pour ne pas proposer de suite, m / sp / a / as = listes [emoji, texte]
 const CFG = (() => {
   const h = location.hash.slice(1);
@@ -179,6 +208,8 @@ const CFG = (() => {
 const txt = (v, n) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 const DE = txt(CFG.de, 40) || "Gaël";      // qui envoie l'invitation
 const POUR = txt(CFG.p, 40);                 // prénom de l'invitée
+const VIDEO = analyserVideo(txt(CFG.v, 500));
+const VIDEO_HAUT = CFG.vp === "haut";
 const MODE = ["manger", "bouger"].includes(CFG.b) ? CFG.b : null;
 const SUITE = CFG.s !== 0;
 function liste(l) {
@@ -237,12 +268,15 @@ function prochain(jourIdx) {
 // Disponibilités passées dans le lien : #20261010-03.20261011-145 (date-indices des créneaux)
 const DISPO = (() => {
   const h = typeof CFG.d === "string" ? CFG.d : decodeURIComponent(location.hash.slice(1));
-  if (!/^\d{8}-\d+(\.\d{8}-\d+)*$/.test(h)) return null;
+  // Format : AAAAMMJJ-<créneaux 0 à 5><tHHMM pour chaque horaire sur mesure>, jours séparés par des points
+  if (!/^\d{8}-\d*(t\d{4})*(\.\d{8}-\d*(t\d{4})*)*$/.test(h)) return null;
   const today = iso(new Date()), out = {};
   h.split(".").forEach(part => {
     const [d, sl] = part.split("-");
     const key = d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6, 8);
-    if (key >= today) out[key] = [...new Set(sl.split("").map(Number))].filter(i => i < 6).sort();
+    const s = [...new Set(sl.match(/^\d*/)[0].split("").filter(Boolean).map(Number))].filter(i => i < 6).sort();
+    const t = [...new Set((sl.match(/t\d{4}/g) || []).map(x => x.slice(1, 3) + ":" + x.slice(3)))].filter(x => +x.slice(0, 2) < 24 && +x.slice(3) < 60);
+    if (key >= today && (s.length || t.length)) out[key] = { s, t };
   });
   return Object.keys(out).length ? out : null;
 })();
@@ -366,7 +400,8 @@ function s2() {
 
 /* 3. L'heure */
 function s3() {
-  const slots = DISPO && DISPO[answers.jour] ? DISPO[answers.jour].map(i => HEURES[i]) : HEURES;
+  const dj = DISPO && DISPO[answers.jour];
+  const slots = dj ? [...dj.s.map(i => HEURES[i]), ...dj.t.map(h => ["⏰", "Sur mesure", h])].sort((a, b) => a[2].localeCompare(b[2])) : HEURES;
   if (answers.heure && !slots.some(h => h[2] === answers.heure) && DISPO) answers.heure = null;
   const s = el(`<div class="step">
     <div class="kicker">le ${esc(joli(answers.jour))}, noté</div>
@@ -514,6 +549,7 @@ function s6() {
     <div class="stamp">c'est<br>un date</div>
     <div class="kicker">c'est officiel</div>
     <h2>${POUR ? esc(POUR) + ", tu" : "Tu"} viens de faire le meilleur choix de ta journée.</h2>
+    ${VIDEO_HAUT ? videoBloc() : ""}
     <div class="ticket">
       <div class="t-head"><b>Billet de rendez-vous</b><span>N° ${num}</span></div>
       <dl>
@@ -530,6 +566,7 @@ function s6() {
         <dt>Avec</dt><dd>${esc(DE)}</dd>
       </dl>
     </div>
+    ${VIDEO_HAUT ? "" : videoBloc()}
     <p>Dernière étape : copie ta réponse et envoie-la à ${esc(DE)} par message.</p>
     <button class="btn yes" id="copy" type="button" style="width:100%">Copier ma réponse</button>
     <div class="copied" id="copied"></div>

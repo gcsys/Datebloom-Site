@@ -81,6 +81,9 @@ h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: v
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 420px) { .fields { grid-template-columns: minmax(0, 1fr); } }
 label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 14px; }
+.add-heure { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.add-heure input, input[type="url"] { font: 600 15px var(--f-body); color: var(--ink); background: var(--card); border: 2px dashed var(--ink); border-radius: 10px; padding: 6px 10px; min-width: 0; }
+input[type="url"] { font-size: 16px; padding: 10px 12px; width: 100%; }
 input[type="text"] { font: 600 16px var(--f-body); color: var(--ink); background: var(--card); border: 2px dashed var(--ink); border-radius: 12px; padding: 10px 12px; width: 100%; min-width: 0; }
 input[type="text"]:focus-visible { outline: 3px solid var(--butter); outline-offset: 2px; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -163,6 +166,19 @@ input[type="text"]:focus-visible { outline: 3px solid var(--butter); outline-off
   </section>
 
   <section class="card">
+    <h2>Vidéo surprise</h2>
+    <p>Une vidéo affichée avec le ticket, à la fin. Colle un lien YouTube, Vimeo ou un fichier .mp4.</p>
+    <label class="f" for="video">Lien de la vidéo
+      <input type="url" id="video" maxlength="500" placeholder="https://youtu.be/…" autocomplete="off">
+    </label>
+    <div class="seg" role="radiogroup" aria-label="Position de la vidéo">
+      <label class="opt"><input type="radio" name="vp" value="haut" id="vp-haut"><span>Au-dessus du ticket</span></label>
+      <label class="opt"><input type="radio" name="vp" value="bas" id="vp-bas"><span>En dessous du ticket</span></label>
+    </div>
+    <p class="hint" id="video-info"></p>
+  </section>
+
+  <section class="card">
     <h2>Lien à envoyer</h2>
     <div class="link" id="link"></div>
     <div class="btns">
@@ -203,6 +219,26 @@ input[type="text"]:focus-visible { outline: 3px solid var(--butter); outline-off
   </div>
 </main>
 <script>
+// Vidéo du ticket : YouTube, Vimeo ou fichier vidéo direct (https uniquement)
+function analyserVideo(url) {
+  let u;
+  try { u = new URL(String(url || "").trim()); } catch (e) { return null; }
+  if (u.protocol !== "https:") return null;
+  const host = u.hostname.replace(/^www\.|^m\./, "");
+  let id = null;
+  if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0];
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    id = u.searchParams.get("v") || (u.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]+)/) || [])[1];
+  }
+  if (id && /^[\w-]{6,20}$/.test(id)) return { type: "YouTube", src: "https://www.youtube-nocookie.com/embed/" + id + "?rel=0&playsinline=1" };
+  if (host === "vimeo.com" || host === "player.vimeo.com") {
+    const v = (u.pathname.match(/(\d{6,12})/) || [])[1];
+    if (v) return { type: "Vimeo", src: "https://player.vimeo.com/video/" + v };
+  }
+  if (/\.(mp4|webm|mov|m4v)$/i.test(u.pathname)) return { type: "fichier", src: u.href };
+  return { type: "lien", src: u.href };
+}
+
 // Ces listes par défaut doivent rester identiques à celles d'index.html.
 const DEFAUTS = {
   m: [["🍕", "Pizza"], ["🍣", "Sushis"], ["🍔", "Burger"], ["🥘", "Croziflette"], ["🫕", "Fondue"], ["🌮", "Tacos"], ["🧀", "Raclette"], ["🥗", "Un truc healthy"], ["🎲", "Surprends-moi"]],
@@ -219,7 +255,7 @@ const key = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
 const clone = o => JSON.parse(JSON.stringify(o));
 
 // État : réglages + dispos ("20261010" -> Set d'indices)
-let st = { p: "", de: "", b: "choix", s: 1, m: clone(DEFAUTS.m), a: clone(DEFAUTS.a), sp: clone(DEFAUTS.sp), as: clone(DEFAUTS.as) };
+let st = { p: "", de: "", b: "choix", s: 1, v: "", vp: "bas", m: clone(DEFAUTS.m), a: clone(DEFAUTS.a), sp: clone(DEFAUTS.sp), as: clone(DEFAUTS.as) };
 const sel = {};
 
 function decode(h) {
@@ -236,14 +272,21 @@ function encode(o) {
 }
 function chargerConfig(o) {
   if (!o || typeof o !== "object") return;
-  ["p", "de"].forEach(k => { if (typeof o[k] === "string") st[k] = o[k]; });
+  ["p", "de", "v"].forEach(k => { if (typeof o[k] === "string") st[k] = o[k]; });
+  if (o.vp === "haut" || o.vp === "bas") st.vp = o.vp;
   if (["choix", "manger", "bouger"].includes(o.b)) st.b = o.b;
   if (o.s === 0 || o.s === 1) st.s = o.s;
   ["m", "a", "sp", "as"].forEach(k => { if (Array.isArray(o[k]) && o[k].length) st[k] = o[k]; });
   if (typeof o.d === "string") lireDispo(o.d);
 }
+// Un jour = Set de créneaux (0 à 5) et d'horaires sur mesure ("14:15")
 function lireDispo(str) {
-  (str.match(/\d{8}-\d+/g) || []).forEach(p => { const [d, s] = p.split("-"); sel[d] = new Set(s.split("").map(Number).filter(i => i < 6)); });
+  (str.match(/\d{8}-\d*(?:t\d{4})*/g) || []).forEach(p => {
+    const [d, s] = p.split("-");
+    const set = new Set(s.match(/^\d*/)[0].split("").filter(Boolean).map(Number).filter(i => i < 6));
+    (s.match(/t\d{4}/g) || []).forEach(x => set.add(x.slice(1, 3) + ":" + x.slice(3)));
+    if (set.size) sel[d] = set;
+  });
 }
 
 // Priorité : un lien collé après # (ancien ou nouveau format), sinon les derniers réglages enregistrés
@@ -254,7 +297,10 @@ else { try { const saved = JSON.parse(localStorage.getItem("datebloom-reglages")
 
 function code() {
   const t = key(new Date());
-  return Object.keys(sel).sort().filter(k => k >= t && sel[k].size).map(k => k + "-" + [...sel[k]].sort().join("")).join(".");
+  return Object.keys(sel).sort().filter(k => k >= t && sel[k].size).map(k => {
+    const v = [...sel[k]];
+    return k + "-" + v.filter(x => typeof x === "number").sort().join("") + v.filter(x => typeof x === "string").sort().map(x => "t" + x.replace(":", "")).join("");
+  }).join(".");
 }
 
 /* Calendrier */
@@ -285,17 +331,36 @@ function renderJours() {
       c.onclick = () => { sel[k].has(i) ? sel[k].delete(i) : sel[k].add(i); renderJours(); };
       row.querySelector(".slots").appendChild(c);
     });
+    [...sel[k]].filter(x => typeof x === "string").sort().forEach(t => {
+      const c = document.createElement("button"); c.type = "button"; c.className = "slot"; c.setAttribute("aria-pressed", "true");
+      c.textContent = "⏰ " + t.replace(":", "h") + " ×"; c.setAttribute("aria-label", "Retirer " + t);
+      c.onclick = () => { sel[k].delete(t); renderJours(); };
+      row.querySelector(".slots").appendChild(c);
+    });
+    const f = document.createElement("form"); f.className = "add-heure";
+    f.innerHTML = '<input type="time" step="300" aria-label="Horaire sur mesure"><button class="reset" type="submit">+ ajouter cet horaire</button>';
+    f.onsubmit = e => { e.preventDefault(); const v = f.querySelector("input").value; if (/^\d{2}:\d{2}$/.test(v)) { sel[k].add(v); renderJours(); } else f.querySelector("input").focus(); };
+    row.appendChild(f);
     list.appendChild(row);
   });
   renderLien();
 }
 
 /* Prénoms et programme */
-const pour = document.getElementById("pour"), de = document.getElementById("de"), suite = document.getElementById("suite");
+const pour = document.getElementById("pour"), de = document.getElementById("de"), suite = document.getElementById("suite"), video = document.getElementById("video");
+function infoVideo() {
+  const i = document.getElementById("video-info"), v = st.v.trim() ? analyserVideo(st.v) : null;
+  i.textContent = !st.v.trim() ? "Aucune vidéo." : !v ? "Lien non reconnu : il doit commencer par https://" : v.type === "lien" ? "Lien reconnu : un bouton l'ouvrira dans un nouvel onglet." : "Vidéo " + v.type + " reconnue, elle s'affichera avec le ticket.";
+}
+video.oninput = () => { st.v = video.value; infoVideo(); renderLien(); };
+document.querySelectorAll('input[name="vp"]').forEach(r => r.onchange = () => { st.vp = r.value; renderLien(); });
 function remplirChamps() {
   pour.value = st.p; de.value = st.de;
   document.getElementById("m-" + st.b).checked = true;
   suite.checked = st.s === 1;
+  video.value = st.v;
+  document.getElementById("vp-" + st.vp).checked = true;
+  infoVideo();
 }
 remplirChamps();
 pour.oninput = () => { st.p = pour.value; renderLien(); };
@@ -348,6 +413,7 @@ function config() {
   const d = code(); if (d) o.d = d;
   if (st.b !== "choix") o.b = st.b;
   if (!st.s) o.s = 0;
+  if (st.v.trim() && analyserVideo(st.v)) { o.v = st.v.trim(); if (st.vp === "haut") o.vp = "haut"; }
   ["m", "a", "sp", "as"].forEach(k => { if (JSON.stringify(st[k]) !== JSON.stringify(DEFAUTS[k])) o[k] = st[k]; });
   o.l = empreinte(JSON.stringify(o)); // identifiant du lien, le même pour les mêmes réglages
   return o;
@@ -387,7 +453,7 @@ function memoriserLien() {
 function reprendreLien(url) {
   const o = decode((url.split("#")[1]) || "");
   if (!o) return;
-  st = { p: "", de: "", b: "choix", s: 1, m: clone(DEFAUTS.m), a: clone(DEFAUTS.a), sp: clone(DEFAUTS.sp), as: clone(DEFAUTS.as) };
+  st = { p: "", de: "", b: "choix", s: 1, v: "", vp: "bas", m: clone(DEFAUTS.m), a: clone(DEFAUTS.a), sp: clone(DEFAUTS.sp), as: clone(DEFAUTS.as) };
   Object.keys(sel).forEach(k => delete sel[k]);
   chargerConfig(o);
   remplirChamps(); renderJours(); renderListes();
