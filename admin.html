@@ -17,6 +17,7 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px;
   background-image: radial-gradient(var(--line) 1.4px, transparent 1.6px); background-size: 22px 22px;
@@ -50,6 +51,15 @@ ol.tl { margin: 8px 0 0; padding-left: 0; list-style: none; display: flex; flex-
 ol.tl li { display: grid; grid-template-columns: 64px 90px minmax(0, 1fr); gap: 8px; font-size: 13px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
 ol.tl li time { color: var(--muted); font-variant-numeric: tabular-nums; }
 ol.tl li span:last-child { overflow-wrap: anywhere; white-space: pre-wrap; }
+.bar { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; background: var(--ink); color: var(--card); border-radius: 18px; padding: 10px 12px; }
+.bar .btn { padding: 8px 14px; font-size: 14px; box-shadow: none; border-color: var(--card); }
+.bar .btn.alt { background: transparent; color: var(--card); }
+.bar span { font-weight: 600; font-size: 14px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.mini { background: var(--card); border: 2px solid var(--ink); border-radius: 999px; color: var(--ink); font: 600 13px var(--f-body); cursor: pointer; padding: 5px 12px; }
+.pick { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); }
+.pick input { width: 20px; height: 20px; accent-color: var(--cherry); margin: 0; }
+.card.selected { outline: 3px solid var(--cherry); outline-offset: 2px; }
 .empty { font-family: var(--f-hand); font-size: 22px; color: var(--muted); text-align: center; }
 </style>
 </head>
@@ -67,8 +77,16 @@ ol.tl li span:last-child { overflow-wrap: anywhere; white-space: pre-wrap; }
   </section>
   <section class="card" id="resume" hidden>
     <div class="stats" id="stats"></div>
+    <div class="tools">
+      <button class="mini" type="button" id="sel-inachevees">Sélectionner les non finalisées</button>
+      <button class="mini" type="button" id="sel-rien">Tout désélectionner</button>
+    </div>
   </section>
   <div id="visits" class="wrap" style="padding:0"></div>
+  <div class="bar" id="bar" hidden>
+    <span id="bar-txt"></span>
+    <div class="tools" id="bar-btns"></div>
+  </div>
 </main>
 <script>
 // Même URL que LOG_URL dans index.html.
@@ -80,28 +98,32 @@ const fmt = d => d.toLocaleString("fr-FR", { weekday: "short", day: "numeric", m
 const heure = d => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
-async function charger() {
+async function charger(garderMsg) {
   if (!LOG_URL) { msg.textContent = "Le suivi n'est pas encore branché : l'URL du script est vide."; return; }
-  msg.textContent = "Chargement…";
+  if (!garderMsg) msg.textContent = "Chargement…";
   try {
     const r = await fetch(LOG_URL + "?key=" + encodeURIComponent(pwd.value));
     const data = await r.json();
     if (data.erreur) { msg.textContent = data.erreur; return; }
     try { localStorage.setItem("datebloom-admin", pwd.value); } catch (e) {}
-    msg.textContent = "";
+    if (!garderMsg) msg.textContent = "";
     afficher(data.lignes || []);
   } catch (e) { msg.textContent = "Impossible de joindre le script. Vérifie son URL et qu'il est déployé pour « Tout le monde »."; }
 }
 
+const choisies = new Set();
+let derniere = [];
 function afficher(lignes) {
   const visites = new Map();
   lignes.forEach(([date, v, pour, type, detail]) => {
-    if (!visites.has(v)) visites.set(v, { pour, evs: [] });
+    if (!visites.has(v)) visites.set(v, { id: v, pour, evs: [] });
     const vis = visites.get(v);
     if (pour) vis.pour = pour;
     vis.evs.push({ d: new Date(date), type, detail });
   });
   const liste = [...visites.values()].sort((a, b) => b.evs[0].d - a.evs[0].d);
+  derniere = liste;
+  [...choisies].forEach(id => { if (!visites.has(id)) choisies.delete(id); });
   const n = liste.length, oui = liste.filter(x => x.evs.some(e => e.type === "oui")).length, fin = liste.filter(x => x.evs.some(e => e.type === "réponse")).length;
   const stats = document.getElementById("stats");
   stats.innerHTML = "";
@@ -113,6 +135,12 @@ function afficher(lignes) {
   if (!n) { const c = el("section", "card"); c.append(el("div", "empty", "Personne n'a encore ouvert l'invitation.")); box.append(c); return; }
   liste.forEach(vis => {
     const c = el("section", "card");
+    c.dataset.id = vis.id;
+    const pick = el("label", "pick");
+    const cb = el("input"); cb.type = "checkbox"; cb.checked = choisies.has(vis.id);
+    cb.onchange = () => { cb.checked ? choisies.add(vis.id) : choisies.delete(vis.id); majBarre(); };
+    pick.append(cb, el("span", "", "Sélectionner pour suppression"));
+    c.classList.toggle("selected", cb.checked);
     const head = el("div", "visit-head");
     head.append(el("b", "", vis.pour ? "Pour " + vis.pour : "Invitation sans prénom"), el("time", "", fmt(vis.evs[0].d)));
     c.append(head);
@@ -146,10 +174,54 @@ function afficher(lignes) {
       ol.append(li);
     });
     det.append(ol);
-    c.append(det);
+    c.append(det, pick);
     box.append(c);
   });
+  majBarre();
 }
+
+const finie = vis => vis.evs.some(e => e.type === "réponse" || e.type === "copie");
+let confirmer = false;
+function majBarre() {
+  document.querySelectorAll("#visits .card[data-id]").forEach(c => {
+    const on = choisies.has(c.dataset.id);
+    c.classList.toggle("selected", on);
+    const cb = c.querySelector(".pick input"); if (cb) cb.checked = on;
+  });
+  const bar = document.getElementById("bar"), txt = document.getElementById("bar-txt"), btns = document.getElementById("bar-btns");
+  bar.hidden = !choisies.size;
+  btns.innerHTML = "";
+  if (!choisies.size) { confirmer = false; return; }
+  const n = choisies.size;
+  if (!confirmer) {
+    txt.textContent = n + " visite" + (n > 1 ? "s" : "") + " sélectionnée" + (n > 1 ? "s" : "");
+    const b = el("button", "btn", "Supprimer"); b.type = "button";
+    b.onclick = () => { confirmer = true; majBarre(); };
+    btns.append(b);
+  } else {
+    txt.textContent = "Supprimer définitivement " + n + " visite" + (n > 1 ? "s" : "") + " ?";
+    const non = el("button", "btn alt", "Annuler"); non.type = "button";
+    non.onclick = () => { confirmer = false; majBarre(); };
+    const oui = el("button", "btn", "Oui, supprimer"); oui.type = "button";
+    oui.onclick = supprimer;
+    btns.append(non, oui);
+  }
+}
+async function supprimer() {
+  const ids = [...choisies];
+  msg.textContent = "Suppression…";
+  try {
+    const r = await fetch(LOG_URL + "?key=" + encodeURIComponent(pwd.value) + "&supprimer=" + encodeURIComponent(ids.join(",")));
+    const data = await r.json();
+    if (data.erreur) { msg.textContent = data.erreur; return; }
+    if (data.supprimees === undefined) { msg.textContent = "Le script n'a pas encore la suppression : publie sa nouvelle version (voir le README)."; return; }
+    choisies.clear(); confirmer = false;
+    msg.textContent = data.supprimees + " ligne" + (data.supprimees > 1 ? "s" : "") + " supprimée" + (data.supprimees > 1 ? "s" : "") + ".";
+    await charger(true);
+  } catch (e) { msg.textContent = "La suppression n'a pas abouti. Réessaie dans un instant."; }
+}
+document.getElementById("sel-inachevees").onclick = () => { derniere.filter(v => !finie(v)).forEach(v => choisies.add(v.id)); confirmer = false; majBarre(); };
+document.getElementById("sel-rien").onclick = () => { choisies.clear(); confirmer = false; majBarre(); };
 
 document.getElementById("login").onsubmit = e => { e.preventDefault(); charger(); };
 if (pwd.value) charger();
